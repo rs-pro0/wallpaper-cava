@@ -1,0 +1,25 @@
+[package]
+name = "wallpaper-cava"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gl = "0.14.0"
+khronos-egl = { version = "6.0.0", features = [
+    "static",
+    "1_0",
+    "1_1",
+    "1_2",
+    "1_3",
+    "1_4",
+    "1_5",
+] }
+serde = { version = "1.0.203", features = ["derive"] }
+smithay-client-toolkit = { git = "https://github.com/Smithay/client-toolkit.git" }
+toml = "0.8.14"
+wayland-client = "0.31.2"
+wayland-egl = "0.32.0"
+wayland-protocols = "0.31.2"
+wayland-protocols-wlr = "0.3.1"
