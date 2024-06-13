@@ -50,7 +50,7 @@ struct Config {
 
 #[derive(Serialize, Deserialize)]
 struct GeneralConfig {
-    cava_framerate: i32,
+    framerate: i32,
     background_color: ConfigColor,
 }
 
@@ -140,7 +140,7 @@ method = raw
 raw_target = /dev/stdout
 bit_format = 16bit
 "#,
-        config.bars.amount, config.general.cava_framerate
+        config.bars.amount, config.general.framerate
     );
 
     let mut cmd = Command::new("cava");

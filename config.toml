@@ -2,7 +2,7 @@
 # All colors here can be either just "#FFFFFF" or { hex: "#FFFFFF", alpha:1.0 }
 # If alpha is not specified, it is considered 1.0.
 [general]
-cava_framerate = 60
+framerate = 60
 background_color = { hex = "#000000", alpha = 0.0 }
 
 [bars]
