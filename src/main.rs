@@ -1,7 +1,7 @@
 extern crate khronos_egl as egl;
 
 use gl::types::{GLsizei, GLsizeiptr};
-use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle};
+use smithay_client_toolkit::reexports::calloop::EventLoop;
 use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
 use smithay_client_toolkit::registry::ProvidesRegistryState;
 use smithay_client_toolkit::{
@@ -10,12 +10,12 @@ use smithay_client_toolkit::{
     registry::RegistryState,
 };
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_output, delegate_registry, delegate_shm, registry_handlers,
+    delegate_compositor, delegate_output, delegate_registry, registry_handlers,
 };
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{
     globals::registry_queue_init,
-    protocol::{wl_output, wl_shm, wl_surface},
+    protocol::{wl_output, wl_surface},
     Connection, QueueHandle,
 };
 use wayland_client::{Dispatch, Proxy};
@@ -28,18 +28,17 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 use core::{ffi, panic};
 use egl::API as egl;
 use std::ffi::CString;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::process::ChildStdout;
 use std::{fs, ptr};
 use std::{
     io::{BufReader, Read},
-    process::{ChildStdin, Command, Stdio},
+    process::{Command, Stdio},
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use toml;
 
 #[derive(Serialize, Deserialize)]
 struct Config {
@@ -71,10 +70,6 @@ enum ConfigColor {
 struct HexColorConfig {
     hex: String,
     alpha: Option<f32>,
-}
-
-struct GradientColor {
-    color: [f32; 4],
 }
 
 fn color_from_hex(hex: String, a: f32) -> [f32; 4] {
