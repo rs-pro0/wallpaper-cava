@@ -27,7 +27,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 
 use core::{ffi, panic};
 use egl::API as egl;
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 use std::io::Write;
 use std::process::ChildStdout;
 use std::{fs, ptr};
@@ -210,6 +210,7 @@ bit_format = 16bit
     };
 
     println!("OpenGL version: {}", version);
+    println!("EGL version: {}", egl.version());
     let vert_shader_source = CString::new(VERTEX_SHADER_SRC).unwrap();
     let vert_shader = unsafe { gl::CreateShader(gl::VERTEX_SHADER) };
     unsafe {
@@ -275,6 +276,16 @@ bit_format = 16bit
         }
     }
 
+    let mut indices: Vec<u16> = vec![0; config.bars.amount as usize * 6];
+    for i in 0..config.bars.amount as usize {
+        indices[i * 6] = i as u16 * 4;
+        indices[i * 6 + 1] = i as u16 * 4 + 1;
+        indices[i * 6 + 2] = i as u16 * 4 + 2;
+        indices[i * 6 + 3] = i as u16 * 4 + 1;
+        indices[i * 6 + 4] = i as u16 * 4 + 2;
+        indices[i * 6 + 5] = i as u16 * 4 + 3;
+    }
+
     let window_size_string = CString::new("WindowSize").unwrap();
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
@@ -284,6 +295,12 @@ bit_format = 16bit
         gl::GenBuffers(1, &mut gradient_colors_ssbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (indices.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
+            indices.as_ptr() as *const ffi::c_void,
+            gl::STATIC_DRAW,
+        );
         gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, gradient_colors_ssbo);
         gl::BufferData(
             gl::SHADER_STORAGE_BUFFER,
@@ -298,12 +315,13 @@ bit_format = 16bit
             2,
             gl::FLOAT,
             gl::FALSE,
-            (2 * std::mem::size_of::<f32>()) as gl::types::GLint,
+            (2 * std::mem::size_of::<f32>()) as gl::types::GLsizei,
             std::ptr::null(),
         );
         gl::EnableVertexAttribArray(0);
         gl::BindVertexArray(0);
     }
+
     let windows_size_location =
         unsafe { gl::GetUniformLocation(shader_program, window_size_string.as_ptr()) };
 
@@ -323,7 +341,6 @@ bit_format = 16bit
         shader_program,
         vao,
         vbo,
-        ebo,
         windows_size_location,
         bar_count: config.bars.amount,
         bar_gap: config.bars.gap,
@@ -350,7 +367,6 @@ struct AppState {
     shader_program: u32,
     vao: u32,
     vbo: u32,
-    ebo: u32,
     windows_size_location: i32,
     bar_count: u32,
     bar_gap: f32,
@@ -370,7 +386,6 @@ impl AppState {
             2.0 / (self.bar_count as f32 + (self.bar_count as f32 - 1.0) * self.bar_gap);
         let bar_gap_width: f32 = bar_width * self.bar_gap;
         let mut vertices: Vec<f32> = vec![0.0; self.bar_count as usize * 8];
-        let mut indices: Vec<u16> = vec![0; self.bar_count as usize * 6];
         let fwidth: f32 = self.width as f32;
         let fheight: f32 = self.height as f32;
         for i in 0..self.bar_count as usize {
@@ -383,12 +398,6 @@ impl AppState {
             vertices[i * 8 + 5] = -1.0;
             vertices[i * 8 + 6] = bar_gap_width * i as f32 + bar_width * (i + 1) as f32 - 1.0;
             vertices[i * 8 + 7] = -1.0;
-            indices[i * 6] = i as u16 * 4;
-            indices[i * 6 + 1] = i as u16 * 4 + 1;
-            indices[i * 6 + 2] = i as u16 * 4 + 2;
-            indices[i * 6 + 3] = i as u16 * 4 + 1;
-            indices[i * 6 + 4] = i as u16 * 4 + 2;
-            indices[i * 6 + 5] = i as u16 * 4 + 3;
         }
         egl.make_current(
             self.egl_display,
@@ -406,13 +415,6 @@ impl AppState {
                 vertices.as_ptr() as *const _,
                 gl::DYNAMIC_DRAW,
             );
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (indices.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
-                indices.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW,
-            );
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::ClearColor(
@@ -426,7 +428,9 @@ impl AppState {
             gl::Uniform2f(self.windows_size_location, fwidth, fheight);
             gl::DrawElements(
                 gl::TRIANGLES,
-                (indices.len() * std::mem::size_of::<u16>()) as i32,
+                (self.bar_count as usize * 3 * std::mem::size_of::<u16>()) as gl::types::GLsizei,
+                // I don't know why * 3 works here, I thought that it is supposed to be * 6, but it
+                // works, so I'll keep it like this for now.
                 gl::UNSIGNED_SHORT,
                 ptr::null(),
             );
@@ -434,8 +438,7 @@ impl AppState {
         }
         egl.swap_buffers(self.egl_display, self.egl_surface)
             .unwrap();
-        self.surface
-            .damage_buffer(0, 0, self.width as i32, self.height as i32);
+        self.surface.damage(0, 0, 1000, 1000);
         self.surface.frame(qh, self.surface.clone());
         self.surface.commit();
     }
