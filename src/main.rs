@@ -27,7 +27,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 
 use core::{ffi, panic};
 use egl::API as egl;
-use std::ffi::{c_void, CString};
+use std::ffi::CString;
 use std::io::Write;
 use std::process::ChildStdout;
 use std::{fs, ptr};
@@ -49,8 +49,10 @@ struct Config {
 
 #[derive(Serialize, Deserialize)]
 struct GeneralConfig {
-    framerate: i32,
+    framerate: u32,
     background_color: ConfigColor,
+    autosens: Option<bool>,
+    sensitivity: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,6 +72,20 @@ enum ConfigColor {
 struct HexColorConfig {
     hex: String,
     alpha: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CavaConfig {
+    general: CavaGeneralConfig,
+    output: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CavaGeneralConfig {
+    framerate: u32,
+    bars: u32,
+    autosens: Option<bool>,
+    sensitivity: Option<f32>,
 }
 
 fn color_from_hex(hex: String, a: f32) -> [f32; 4] {
@@ -93,24 +109,26 @@ const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex_shader.glsl");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shaders/fragment_shader.glsl");
 
 fn main() {
+    let cava_output_config: HashMap<String, String> = HashMap::from([
+        ("method".into(), "raw".into()),
+        ("raw_target".into(), "/dev/stdout".into()),
+        ("bit_format".into(), "16bit".into()),
+    ]);
     let config_str = fs::read_to_string("config.toml").expect("Unable to read config file");
     let config: Config = match toml::from_str(&config_str) {
         Ok(config) => config,
         Err(error) => panic!("Error parsing config: {}", error.message()),
     };
-    let cava_config: String = format!(
-        r#"
-[general]
-bars = {}
-framerate = {}
-[output]
-method = raw
-raw_target = /dev/stdout
-bit_format = 16bit
-"#,
-        config.bars.amount, config.general.framerate
-    );
-
+    let cava_config = CavaConfig {
+        general: CavaGeneralConfig {
+            framerate: config.general.framerate,
+            bars: config.bars.amount,
+            autosens: config.general.autosens,
+            sensitivity: config.general.sensitivity,
+        },
+        output: cava_output_config,
+    };
+    let string_cava_config: String = toml::to_string(&cava_config).unwrap();
     let mut cmd = Command::new("cava");
     cmd.arg("-p").arg("/dev/stdin");
     let cava_process = cmd
@@ -119,7 +137,7 @@ bit_format = 16bit
         .spawn()
         .expect("failed to spawn cava process");
     let mut cava_stdin = cava_process.stdin.unwrap();
-    cava_stdin.write_all(cava_config.as_bytes()).unwrap();
+    cava_stdin.write_all(string_cava_config.as_bytes()).unwrap();
     drop(cava_stdin);
     let cava_stdout = cava_process.stdout.unwrap();
     let cava_reader = BufReader::new(cava_stdout);
@@ -438,9 +456,7 @@ impl AppState {
         }
         egl.swap_buffers(self.egl_display, self.egl_surface)
             .unwrap();
-        self.surface.damage(0, 0, 1000, 1000);
         self.surface.frame(qh, self.surface.clone());
-        self.surface.commit();
     }
 }
 
