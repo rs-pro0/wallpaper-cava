@@ -11,4 +11,5 @@ Building
 1. Clone this repo.
 2. Clone [wayland-rs](https://github.com/Smithay/wayland-rs) into "wayland-rs" directory inside of this repo directory.
 3. Build using Cargo: `cargo build --release`.
-4. You can run `target/release/wallpaper-cava`.
+4. Ensure you have [cava](https://github.com/karlstav/cava) installed.
+5. You can run `target/release/wallpaper-cava`.
