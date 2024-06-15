@@ -150,8 +150,7 @@ fn main() {
     WaylandSource::new(conn.clone(), event_queue)
         .insert(loop_handle)
         .unwrap();
-    let target_fps = 60;
-    let frame_duration = Duration::from_secs(1) / target_fps;
+    let frame_duration = Duration::from_secs(1) / config.general.framerate;
     let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
     let surface = compositor.create_surface(&qh);
     let layer_shell = globals
@@ -417,13 +416,6 @@ impl AppState {
             vertices[i * 8 + 6] = bar_gap_width * i as f32 + bar_width * (i + 1) as f32 - 1.0;
             vertices[i * 8 + 7] = -1.0;
         }
-        egl.make_current(
-            self.egl_display,
-            Some(self.egl_surface),
-            Some(self.egl_surface),
-            Some(self.egl_context),
-        )
-        .unwrap();
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -532,6 +524,13 @@ impl OutputHandler for AppState {
             )
             .unwrap()
         };
+        egl.make_current(
+            self.egl_display,
+            Some(self.egl_surface),
+            Some(self.egl_surface),
+            Some(self.egl_context),
+        )
+        .unwrap();
         unsafe {
             gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
         }
@@ -561,6 +560,13 @@ impl OutputHandler for AppState {
             )
             .unwrap()
         };
+        egl.make_current(
+            self.egl_display,
+            Some(self.egl_surface),
+            Some(self.egl_surface),
+            Some(self.egl_context),
+        )
+        .unwrap();
         unsafe {
             gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
         }
