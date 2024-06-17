@@ -6,6 +6,8 @@ framerate = 60
 background_color = { hex = "#000000", alpha = 0.0 }
 # autosens = true
 # sensitivity = 100
+# You can set your monitor name, if your are on hyprland you can get it using `hyprctl monitors all`
+# preferred_output = ""
 
 [bars]
 amount = 76

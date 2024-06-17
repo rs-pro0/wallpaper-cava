@@ -7,6 +7,7 @@ use smithay_client_toolkit::registry::ProvidesRegistryState;
 use smithay_client_toolkit::shell::wlr_layer::{
     Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
 };
+use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
@@ -15,6 +16,7 @@ use smithay_client_toolkit::{
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
 };
+use wayland_client::protocol::wl_compositor::WlCompositor;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::Proxy;
 use wayland_client::{
@@ -52,6 +54,7 @@ struct GeneralConfig {
     background_color: ConfigColor,
     autosens: Option<bool>,
     sensitivity: Option<f32>,
+    preferred_output: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -343,6 +346,7 @@ fn main() {
         output_state: OutputState::new(&globals, &qh),
         width: 256,
         height: 256,
+        layer_shell,
         layer_surface,
         surface,
         cava_reader,
@@ -358,6 +362,8 @@ fn main() {
         bar_count: config.bars.amount,
         bar_gap: config.bars.gap,
         background_color: array_from_config_color(config.general.background_color),
+        preferred_output_name: config.general.preferred_output,
+        compositor,
     };
     event_loop
         .run(frame_duration, &mut simple_window, |_| {})
@@ -369,6 +375,7 @@ struct AppState {
     output_state: OutputState,
     width: u32,
     height: u32,
+    layer_shell: LayerShell,
     layer_surface: LayerSurface,
     surface: WlSurface,
     cava_reader: BufReader<ChildStdout>,
@@ -384,6 +391,8 @@ struct AppState {
     bar_count: u32,
     bar_gap: f32,
     background_color: [f32; 4],
+    preferred_output_name: Option<String>,
+    compositor: CompositorState,
 }
 
 impl AppState {
@@ -448,28 +457,6 @@ impl AppState {
     }
 }
 
-impl LayerShellHandler for AppState {
-    fn closed(&mut self, conn: &Connection, qh: &QueueHandle<Self>, layer: &LayerSurface) {}
-    fn configure(
-        &mut self,
-        conn: &Connection,
-        qh: &QueueHandle<Self>,
-        layer: &LayerSurface,
-        configure: LayerSurfaceConfigure,
-        serial: u32,
-    ) {
-        let width = configure.new_size.0;
-        let height = configure.new_size.1;
-        println!(
-            "LayerSurface configure event: width={}, height={}",
-            width, height
-        );
-        self.width = width;
-        self.height = height;
-        self.draw(conn, qh);
-    }
-}
-
 impl OutputHandler for AppState {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.output_state
@@ -478,73 +465,49 @@ impl OutputHandler for AppState {
     fn new_output(
         &mut self,
         _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        qh: &QueueHandle<Self>,
+        output: wl_output::WlOutput,
     ) {
-        let info = self.output_state.info(&_output).unwrap();
-        let logical_size = info.logical_size.unwrap();
-        self.width = logical_size.0 as u32;
-        self.height = logical_size.1 as u32;
-        self.layer_surface.set_size(self.width, self.height);
-        egl.destroy_surface(self.egl_display, self.egl_surface)
-            .unwrap();
-        self.wl_egl_surface =
-            WlEglSurface::new(self.surface.id(), self.width as i32, self.height as i32).unwrap();
-        self.egl_surface = unsafe {
-            egl.create_window_surface(
-                self.egl_display,
-                self.egl_config,
-                self.wl_egl_surface.ptr() as egl::NativeWindowType,
-                None,
-            )
-            .unwrap()
-        };
-        egl.make_current(
-            self.egl_display,
-            Some(self.egl_surface),
-            Some(self.egl_surface),
-            Some(self.egl_context),
-        )
-        .unwrap();
-        unsafe {
-            gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
+        let info = self.output_state.info(&output).unwrap();
+        let mut need_configuration = false;
+        if let Some(output_name) = info.name {
+            if let Some(preffered_output_name) = self.preferred_output_name.clone() {
+                if output_name == preffered_output_name {
+                    need_configuration = true;
+                }
+            }
+        }
+        if self.preferred_output_name.is_none() {
+            need_configuration = true;
+        }
+        if need_configuration {
+            let old_surface = self.surface.clone();
+            self.surface = self.compositor.create_surface(qh);
+            self.layer_surface = self.layer_shell.create_layer_surface(
+                qh,
+                self.surface.clone(),
+                Layer::Bottom,
+                Some("wallpaper-cava"),
+                Some(&output),
+            );
+            let logical_size = info.logical_size.unwrap();
+            self.width = logical_size.0 as u32;
+            self.height = logical_size.1 as u32;
+            self.layer_surface.set_size(self.width, self.height);
+            self.layer_surface.set_anchor(Anchor::TOP);
+            self.surface.commit();
+            old_surface.destroy();
         }
     }
 
+    // For now update_output is same as new_output, because I'm not really sure what to do with it
     fn update_output(
         &mut self,
         _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        qh: &QueueHandle<Self>,
+        output: wl_output::WlOutput,
     ) {
-        let info = self.output_state.info(&_output).unwrap();
-        let logical_size = info.logical_size.unwrap();
-        self.width = logical_size.0 as u32;
-        self.height = logical_size.1 as u32;
-        self.layer_surface.set_size(self.width, self.height);
-        egl.destroy_surface(self.egl_display, self.egl_surface)
-            .unwrap();
-        self.wl_egl_surface =
-            WlEglSurface::new(self.surface.id(), self.width as i32, self.height as i32).unwrap();
-        self.egl_surface = unsafe {
-            egl.create_window_surface(
-                self.egl_display,
-                self.egl_config,
-                self.wl_egl_surface.ptr() as egl::NativeWindowType,
-                None,
-            )
-            .unwrap()
-        };
-        egl.make_current(
-            self.egl_display,
-            Some(self.egl_surface),
-            Some(self.egl_surface),
-            Some(self.egl_context),
-        )
-        .unwrap();
-        unsafe {
-            gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
-        }
+        self.new_output(_conn, qh, output);
     }
 
     fn output_destroyed(
@@ -614,5 +577,51 @@ impl CompositorHandler for AppState {
         _surface: &wl_surface::WlSurface,
         _output: &wl_output::WlOutput,
     ) {
+    }
+}
+
+impl LayerShellHandler for AppState {
+    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _layer: &LayerSurface) {}
+
+    fn configure(
+        &mut self,
+        _conn: &Connection,
+        qh: &QueueHandle<Self>,
+        _layer: &LayerSurface,
+        configure: LayerSurfaceConfigure,
+        _serial: u32,
+    ) {
+        let width = configure.new_size.0;
+        let height = configure.new_size.1;
+        println!(
+            "LayerSurface configure event: width={}, height={}",
+            width, height
+        );
+        self.width = width;
+        self.height = height;
+        egl.destroy_surface(self.egl_display, self.egl_surface)
+            .unwrap();
+        self.wl_egl_surface =
+            WlEglSurface::new(self.surface.id(), self.width as i32, self.height as i32).unwrap();
+        self.egl_surface = unsafe {
+            egl.create_window_surface(
+                self.egl_display,
+                self.egl_config,
+                self.wl_egl_surface.ptr() as egl::NativeWindowType,
+                None,
+            )
+            .unwrap()
+        };
+        egl.make_current(
+            self.egl_display,
+            Some(self.egl_surface),
+            Some(self.egl_surface),
+            Some(self.egl_context),
+        )
+        .unwrap();
+        unsafe {
+            gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
+        }
+        self.draw(_conn, qh);
     }
 }
