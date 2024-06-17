@@ -62,6 +62,11 @@ fn main() {
             autosens: config.general.autosens,
             sensitivity: config.general.sensitivity,
         },
+        smoothing: CavaSmoothingConfig {
+            monstercat: config.smoothing.monstercat,
+            waves: config.smoothing.waves,
+            noise_reduction: config.smoothing.noise_reduction,
+        },
         output: cava_output_config,
     };
     let string_cava_config: String = toml::to_string(&cava_config).unwrap();
@@ -336,7 +341,7 @@ impl AppState {
         self.cava_reader.read_exact(&mut cava_buffer).unwrap();
         for (unpacked_data_index, i) in (0..cava_buffer.len()).step_by(2).enumerate() {
             let num = u16::from_le_bytes([cava_buffer[i], cava_buffer[i + 1]]);
-            unpacked_data[unpacked_data_index] = (num as f32) / 65535.0;
+            unpacked_data[unpacked_data_index] = (num as f32) / 65530.0;
         }
         let bar_width: f32 =
             2.0 / (self.bar_count as f32 + (self.bar_count as f32 - 1.0) * self.bar_gap);

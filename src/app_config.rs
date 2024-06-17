@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub general: GeneralConfig,
     pub bars: BarConfig,
     pub colors: HashMap<String, ConfigColor>,
+    pub smoothing: SmoothingConfig,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GeneralConfig {
     pub framerate: u32,
     pub background_color: ConfigColor,
@@ -16,37 +17,52 @@ pub struct GeneralConfig {
     pub preferred_output: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BarConfig {
     pub amount: u32,
     pub gap: f32,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SmoothingConfig {
+    pub monstercat: Option<f32>,
+    pub waves: Option<i32>,
+    pub noise_reduction: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum ConfigColor {
     Simple(String),
     Complex(HexColorConfig),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HexColorConfig {
     pub hex: String,
     pub alpha: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CavaConfig {
     pub general: CavaGeneralConfig,
+    pub smoothing: CavaSmoothingConfig,
     pub output: HashMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CavaGeneralConfig {
     pub framerate: u32,
     pub bars: u32,
     pub autosens: Option<bool>,
     pub sensitivity: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CavaSmoothingConfig {
+    pub monstercat: Option<f32>,
+    pub waves: Option<i32>,
+    pub noise_reduction: Option<f32>,
 }
 
 pub fn color_from_hex(hex: String, a: f32) -> [f32; 4] {

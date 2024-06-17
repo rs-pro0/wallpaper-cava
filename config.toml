@@ -24,3 +24,16 @@ gradient_color_5 = '#cba6f7'
 gradient_color_6 = '#f5c2e7'
 gradient_color_7 = '#eba0ac'
 gradient_color_8 = '#f38ba8'
+
+[smoothing]
+# Smoothing just passes these parameters to cava, so description is also copied(I didn't add support to deprecated options)
+
+# Disables or enables the so-called "Monstercat smoothing" with or without "waves". Set to 0 to disable.
+# monstercat = 0
+# Waves don't work properly in raw mode with binary output so I don't recommend using them until issue is fixed in cava itself.
+# waves = 0
+
+# Noise reduction, float 0 - 1. default 0.77
+# the raw visualization is very noisy, this factor adjusts the integral and gravity filters to keep the signal smooth
+# 1 will be very slow and smooth, 0 will be fast but noisy.
+# noise_reduction = 0.77
