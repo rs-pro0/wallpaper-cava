@@ -7,7 +7,6 @@ use smithay_client_toolkit::registry::ProvidesRegistryState;
 use smithay_client_toolkit::shell::wlr_layer::{
     Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
 };
-use smithay_client_toolkit::shell::WaylandSurface;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
@@ -16,7 +15,6 @@ use smithay_client_toolkit::{
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
 };
-use wayland_client::protocol::wl_compositor::WlCompositor;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::Proxy;
 use wayland_client::{
