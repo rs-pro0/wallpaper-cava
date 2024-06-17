@@ -36,73 +36,9 @@ use std::{
     time::Duration,
 };
 
-use serde::{Deserialize, Serialize};
+pub mod app_config;
+use app_config::*;
 use std::collections::HashMap;
-
-#[derive(Serialize, Deserialize)]
-struct Config {
-    general: GeneralConfig,
-    bars: BarConfig,
-    colors: HashMap<String, ConfigColor>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct GeneralConfig {
-    framerate: u32,
-    background_color: ConfigColor,
-    autosens: Option<bool>,
-    sensitivity: Option<f32>,
-    preferred_output: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct BarConfig {
-    amount: u32,
-    gap: f32,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-enum ConfigColor {
-    Simple(String),
-    Complex(HexColorConfig),
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct HexColorConfig {
-    hex: String,
-    alpha: Option<f32>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct CavaConfig {
-    general: CavaGeneralConfig,
-    output: HashMap<String, String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct CavaGeneralConfig {
-    framerate: u32,
-    bars: u32,
-    autosens: Option<bool>,
-    sensitivity: Option<f32>,
-}
-
-fn color_from_hex(hex: String, a: f32) -> [f32; 4] {
-    let r = u8::from_str_radix(&hex[1..3], 16).unwrap() as f32 / 255f32;
-    let g = u8::from_str_radix(&hex[3..5], 16).unwrap() as f32 / 255f32;
-    let b = u8::from_str_radix(&hex[5..7], 16).unwrap() as f32 / 255f32;
-    [r, g, b, a]
-}
-
-fn array_from_config_color(color: ConfigColor) -> [f32; 4] {
-    match color {
-        ConfigColor::Simple(hex) => color_from_hex(hex.to_string(), 1.0),
-        ConfigColor::Complex(color) => {
-            color_from_hex(color.hex.to_string(), color.alpha.unwrap_or(1.0))
-        }
-    }
-}
 
 const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex_shader.glsl");
 
