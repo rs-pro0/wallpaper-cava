@@ -4,26 +4,25 @@ use gl::types::{GLsizei, GLsizeiptr};
 use smithay_client_toolkit::reexports::calloop::EventLoop;
 use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
 use smithay_client_toolkit::registry::ProvidesRegistryState;
+use smithay_client_toolkit::shell::wlr_layer::{
+    Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
+};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
     registry::RegistryState,
 };
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_output, delegate_registry, registry_handlers,
+    delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
 };
 use wayland_client::protocol::wl_surface::WlSurface;
+use wayland_client::Proxy;
 use wayland_client::{
     globals::registry_queue_init,
     protocol::{wl_output, wl_surface},
     Connection, QueueHandle,
 };
-use wayland_client::{Dispatch, Proxy};
 use wayland_egl::WlEglSurface;
-use wayland_protocols_wlr::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
-    zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
-};
 
 use core::{ffi, panic};
 use egl::API as egl;
@@ -153,19 +152,16 @@ fn main() {
     let frame_duration = Duration::from_secs(1) / config.general.framerate;
     let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
     let surface = compositor.create_surface(&qh);
-    let layer_shell = globals
-        .bind::<ZwlrLayerShellV1, _, _>(&qh, 1..=4, ())
-        .expect("zwlr_layer_shell_v1 not available");
-    let layer_surface = layer_shell.get_layer_surface(
-        &surface,
-        None,
-        zwlr_layer_shell_v1::Layer::Bottom,
-        "wallpaper".into(),
+    let layer_shell = LayerShell::bind(&globals, &qh).expect("layer shell not available");
+    let layer_surface = layer_shell.create_layer_surface(
         &qh,
-        (),
+        surface.clone(),
+        Layer::Bottom,
+        Some("wallpaper-cava"),
+        None,
     );
     layer_surface.set_size(256, 256);
-    layer_surface.set_anchor(zwlr_layer_surface_v1::Anchor::Top);
+    layer_surface.set_anchor(Anchor::TOP);
     surface.commit();
     egl.bind_api(egl::OPENGL_API).unwrap();
     let egl_display = unsafe {
@@ -373,7 +369,7 @@ struct AppState {
     output_state: OutputState,
     width: u32,
     height: u32,
-    layer_surface: ZwlrLayerSurfaceV1,
+    layer_surface: LayerSurface,
     surface: WlSurface,
     cava_reader: BufReader<ChildStdout>,
     wl_egl_surface: WlEglSurface,
@@ -452,46 +448,25 @@ impl AppState {
     }
 }
 
-impl Dispatch<ZwlrLayerShellV1, ()> for AppState {
-    fn event(
-        _state: &mut Self,
-        _proxy: &ZwlrLayerShellV1,
-        _event: <ZwlrLayerShellV1 as wayland_client::Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-    ) {
-    }
-}
-
-impl Dispatch<ZwlrLayerSurfaceV1, ()> for AppState {
-    fn event(
-        state: &mut Self,
-        proxy: &ZwlrLayerSurfaceV1,
-        event: <ZwlrLayerSurfaceV1 as wayland_client::Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
+impl LayerShellHandler for AppState {
+    fn closed(&mut self, conn: &Connection, qh: &QueueHandle<Self>, layer: &LayerSurface) {}
+    fn configure(
+        &mut self,
+        conn: &Connection,
         qh: &QueueHandle<Self>,
+        layer: &LayerSurface,
+        configure: LayerSurfaceConfigure,
+        serial: u32,
     ) {
-        match event {
-            zwlr_layer_surface_v1::Event::Configure {
-                serial,
-                width,
-                height,
-            } => {
-                println!(
-                    "LayerSurface configure event: width={}, height={}",
-                    width, height
-                );
-                proxy.ack_configure(serial);
-                state.width = width;
-                state.height = height;
-                state.draw(_conn, qh);
-            }
-            _ => {
-                println!("Unknown surface event");
-            }
-        }
+        let width = configure.new_size.0;
+        let height = configure.new_size.1;
+        println!(
+            "LayerSurface configure event: width={}, height={}",
+            width, height
+        );
+        self.width = width;
+        self.height = height;
+        self.draw(conn, qh);
     }
 }
 
@@ -585,6 +560,7 @@ delegate_compositor!(AppState);
 
 delegate_output!(AppState);
 delegate_registry!(AppState);
+delegate_layer!(AppState);
 
 impl ProvidesRegistryState for AppState {
     fn registry(&mut self) -> &mut RegistryState {
