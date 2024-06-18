@@ -30,7 +30,7 @@ gradient_color_8 = '#f38ba8'
 
 # Disables or enables the so-called "Monstercat smoothing" with or without "waves". Set to 0 to disable.
 # monstercat = 0
-# Waves don't work properly in raw mode with binary output so I don't recommend using them until issue is fixed in cava itself.
+# At the time of writing this line of code, waves work properly in raw mode(which wallpaper-cava relies on) only if you compile cava from github.
 # waves = 0
 
 # Noise reduction, float 0 - 1. default 0.77
