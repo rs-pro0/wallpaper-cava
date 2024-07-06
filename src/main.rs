@@ -28,8 +28,8 @@ use core::{ffi, panic};
 use egl::API as egl;
 use std::ffi::CString;
 use std::io::Write;
-use std::process::ChildStdout;
-use std::{fs, ptr};
+use std::process::{exit, ChildStdout};
+use std::{env, fs, ptr};
 use std::{
     io::{BufReader, Read},
     process::{Command, Stdio},
@@ -38,6 +38,8 @@ use std::{
 
 pub mod app_config;
 use app_config::*;
+pub mod cli_help;
+use cli_help::*;
 use std::collections::HashMap;
 
 const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex_shader.glsl");
@@ -45,12 +47,24 @@ const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex_shader.glsl");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shaders/fragment_shader.glsl");
 
 fn main() {
+    let mut config_filename = "config.toml";
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 3 {
+        if args[1] != "--config" {
+            print_help();
+            exit(0);
+        }
+        config_filename = &args[2];
+    } else if args.len() != 1 {
+        print_help();
+        exit(0);
+    }
     let cava_output_config: HashMap<String, String> = HashMap::from([
         ("method".into(), "raw".into()),
         ("raw_target".into(), "/dev/stdout".into()),
         ("bit_format".into(), "16bit".into()),
     ]);
-    let config_str = fs::read_to_string("config.toml").expect("Unable to read config file");
+    let config_str = fs::read_to_string(config_filename).expect("Unable to read config file");
     let config: Config = match toml::from_str(&config_str) {
         Ok(config) => config,
         Err(error) => panic!("Error parsing config: {}", error.message()),
@@ -562,5 +576,6 @@ impl LayerShellHandler for AppState {
             gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
         }
         self.draw(_conn, qh);
+        println!("configure finished");
     }
 }
