@@ -8,8 +8,7 @@ Built using [wayland-rs](https://github.com/Smithay/wayland-rs), [smithay-client
 Building
 ------------
 
-1. Clone this repo.
-2. Clone [wayland-rs](https://github.com/Smithay/wayland-rs) into "wayland-rs" directory inside of this repo directory.
-3. Build using Cargo: `cargo build --release`.
-4. Ensure you have [cava](https://github.com/karlstav/cava) installed.
-5. You can run `target/release/wallpaper-cava`.
+1. Clone this repo: `git clone --recursive git@github.com:rs-pro0/wallpaper-cava`
+2. Build using Cargo: `cargo build --release`.
+3. Ensure you have [cava](https://github.com/karlstav/cava) installed.
+4. You can run `target/release/wallpaper-cava`.
