@@ -1,3 +1,0 @@
-[submodule "wayland-rs"]
-	path = wayland-rs
-	url = git@github.com:Smithay/wayland-rs.git

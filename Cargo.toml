@@ -21,9 +21,6 @@ khronos-egl = { version = "6.0.0", features = [
     "1_5",
 ] }
 serde = { version = "1.0.203", features = ["derive"] }
-smithay-client-toolkit = { git = "https://github.com/Smithay/client-toolkit.git" }
+smithay-client-toolkit = "0.20.0"
 toml = "0.8.14"
-wayland-client = "0.31.2"
 wayland-egl = "0.32.0"
-wayland-protocols = "0.31.2"
-wayland-protocols-wlr = "0.3.1"

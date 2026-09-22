@@ -15,9 +15,9 @@ use smithay_client_toolkit::{
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
 };
-use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{delegate_noop, Proxy};
-use wayland_client::{
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
+use smithay_client_toolkit::reexports::client::{delegate_noop, Proxy};
+use smithay_client_toolkit::reexports::client::{
     globals::registry_queue_init,
     protocol::{wl_output, wl_region, wl_surface},
     Connection, QueueHandle,
