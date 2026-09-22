@@ -3,6 +3,13 @@ extern crate khronos_egl as egl;
 use gl::types::{GLsizei, GLsizeiptr};
 use smithay_client_toolkit::reexports::calloop::EventLoop;
 use smithay_client_toolkit::reexports::calloop_wayland_source::WaylandSource;
+use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
+use smithay_client_toolkit::reexports::client::{delegate_noop, Proxy};
+use smithay_client_toolkit::reexports::client::{
+    globals::registry_queue_init,
+    protocol::{wl_output, wl_region, wl_surface},
+    Connection, QueueHandle,
+};
 use smithay_client_toolkit::registry::ProvidesRegistryState;
 use smithay_client_toolkit::shell::wlr_layer::{
     Anchor, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
@@ -14,13 +21,6 @@ use smithay_client_toolkit::{
 };
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
-};
-use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
-use smithay_client_toolkit::reexports::client::{delegate_noop, Proxy};
-use smithay_client_toolkit::reexports::client::{
-    globals::registry_queue_init,
-    protocol::{wl_output, wl_region, wl_surface},
-    Connection, QueueHandle,
 };
 use wayland_egl::WlEglSurface;
 
@@ -445,6 +445,10 @@ impl OutputHandler for AppState {
             need_configuration = true;
         }
         if need_configuration {
+            egl.make_current(self.egl_display, None, None, None)
+                .unwrap();
+            egl.destroy_surface(self.egl_display, self.egl_surface)
+                .unwrap();
             let old_surface = self.surface.clone();
             self.surface = self.compositor.create_surface(qh);
             let empty_input_region = self.compositor.wl_compositor().create_region(qh, ());
@@ -463,6 +467,26 @@ impl OutputHandler for AppState {
             self.layer_surface.set_size(self.width, self.height);
             self.layer_surface.set_anchor(Anchor::TOP);
             self.surface.commit();
+            self.wl_egl_surface =
+                WlEglSurface::new(self.surface.id(), self.width as i32, self.height as i32)
+                    .unwrap();
+
+            self.egl_surface = unsafe {
+                egl.create_window_surface(
+                    self.egl_display,
+                    self.egl_config,
+                    self.wl_egl_surface.ptr() as egl::NativeWindowType,
+                    None,
+                )
+                .unwrap()
+            };
+            egl.make_current(
+                self.egl_display,
+                Some(self.egl_surface),
+                Some(self.egl_surface),
+                Some(self.egl_context),
+            )
+            .unwrap();
             old_surface.destroy();
         }
     }
@@ -567,26 +591,8 @@ impl LayerShellHandler for AppState {
         );
         self.width = width;
         self.height = height;
-        egl.destroy_surface(self.egl_display, self.egl_surface)
-            .unwrap();
-        self.wl_egl_surface =
-            WlEglSurface::new(self.surface.id(), self.width as i32, self.height as i32).unwrap();
-        self.egl_surface = unsafe {
-            egl.create_window_surface(
-                self.egl_display,
-                self.egl_config,
-                self.wl_egl_surface.ptr() as egl::NativeWindowType,
-                None,
-            )
-            .unwrap()
-        };
-        egl.make_current(
-            self.egl_display,
-            Some(self.egl_surface),
-            Some(self.egl_surface),
-            Some(self.egl_context),
-        )
-        .unwrap();
+        self.wl_egl_surface
+            .resize(self.width as i32, self.height as i32, 0, 0);
         unsafe {
             gl::Viewport(0, 0, self.width as GLsizei, self.height as GLsizei);
         }
