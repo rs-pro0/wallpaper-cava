@@ -16,10 +16,10 @@ use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, registry_handlers,
 };
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::Proxy;
+use wayland_client::{delegate_noop, Proxy};
 use wayland_client::{
     globals::registry_queue_init,
-    protocol::{wl_output, wl_surface},
+    protocol::{wl_output, wl_region, wl_surface},
     Connection, QueueHandle,
 };
 use wayland_egl::WlEglSurface;
@@ -116,6 +116,9 @@ fn main() {
     let frame_duration = Duration::from_secs(1) / config.general.framerate;
     let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
     let surface = compositor.create_surface(&qh);
+    let empty_input_region = compositor.wl_compositor().create_region(&qh, ());
+    surface.set_input_region(Some(&empty_input_region));
+    empty_input_region.destroy();
     let layer_shell = LayerShell::bind(&globals, &qh).expect("layer shell not available");
     let layer_surface = layer_shell.create_layer_surface(
         &qh,
@@ -444,6 +447,9 @@ impl OutputHandler for AppState {
         if need_configuration {
             let old_surface = self.surface.clone();
             self.surface = self.compositor.create_surface(qh);
+            let empty_input_region = self.compositor.wl_compositor().create_region(qh, ());
+            self.surface.set_input_region(Some(&empty_input_region));
+            empty_input_region.destroy();
             self.layer_surface = self.layer_shell.create_layer_surface(
                 qh,
                 self.surface.clone(),
@@ -481,6 +487,7 @@ impl OutputHandler for AppState {
 }
 
 delegate_compositor!(AppState);
+delegate_noop!(AppState: ignore wl_region::WlRegion);
 
 delegate_output!(AppState);
 delegate_registry!(AppState);
