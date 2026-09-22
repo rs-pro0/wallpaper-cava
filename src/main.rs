@@ -185,8 +185,9 @@ fn main() {
     .unwrap();
     gl::load_with(|name| egl.get_proc_address(name).unwrap() as *const std::ffi::c_void);
     let version = unsafe {
-        let data = gl::GetString(gl::VERSION) as *const i8;
-        CString::from_raw(data as *mut _).into_string().unwrap()
+        ffi::CStr::from_ptr(gl::GetString(gl::VERSION) as *const i8)
+            .to_string_lossy()
+            .into_owned()
     };
 
     println!("OpenGL version: {}", version);
